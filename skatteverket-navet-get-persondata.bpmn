@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_1v535kq" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.16.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.20.0">
+  <bpmn:process id="skatteverket-navet-get-persondata" name="Onify Blueprint: Get persondata from Skatteverket Navet" isExecutable="true" camunda:historyTimeToLive="180">
+    <bpmn:extensionElements />
+    <bpmn:startEvent id="start" name="Start">
+      <bpmn:outgoing>Flow_03z4mly</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_03z4mly" sourceRef="start" targetRef="getSettings" />
+    <bpmn:endEvent id="success" name="Success">
+      <bpmn:incoming>Flow_0scvv88</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_0u3o8mf" sourceRef="getPersondata" targetRef="convertPersondataXML" />
+    <bpmn:serviceTask id="getPersondata" name="Get persondata from Skatteverket">
+      <bpmn:extensionElements>
+        <camunda:connector>
+          <camunda:inputOutput>
+            <camunda:inputParameter name="url">${environment.output.settings._skv_navet_url_persondata}</camunda:inputParameter>
+            <camunda:inputParameter name="method">POST</camunda:inputParameter>
+            <camunda:inputParameter name="headers">
+              <camunda:map>
+                <camunda:entry key="Content-Type">text/xml</camunda:entry>
+              </camunda:map>
+            </camunda:inputParameter>
+            <camunda:inputParameter name="body">
+              <camunda:script scriptFormat="js">const body = `&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ns1="http://xmls.skatteverket.se/se/skatteverket/folkbokforing/na/epersondata/V1"&gt;
+   &lt;soapenv:Header/&gt;
+   &lt;soapenv:Body&gt;
+      &lt;ns1:PersonpostRequest&gt;
+         &lt;ns1:Bestallning&gt;
+            &lt;ns1:OrgNr&gt;${environment.output.settings._skv_navet_org_nr}&lt;/ns1:OrgNr&gt;
+            &lt;ns1:BestallningsId&gt;${environment.output.settings._skv_navet_order_id}&lt;/ns1:BestallningsId&gt;
+         &lt;/ns1:Bestallning&gt;
+         &lt;ns1:PersonId&gt;${content.input.PersonId}&lt;/ns1:PersonId&gt;
+      &lt;/ns1:PersonpostRequest&gt;
+   &lt;/soapenv:Body&gt;
+&lt;/soapenv:Envelope&gt;`;
+next(null, body);
+</camunda:script>
+            </camunda:inputParameter>
+            <camunda:inputParameter name="https">
+              <camunda:script scriptFormat="js">const https = {
+  pfx: Buffer.from(environment.output.settings._skv_navet_cert_base64, 'base64'),
+  passphrase: environment.output.settings._skv_navet_cert_passphrase
+};
+next(null, https);</camunda:script>
+            </camunda:inputParameter>
+          </camunda:inputOutput>
+          <camunda:connectorId>httpRequest</camunda:connectorId>
+        </camunda:connector>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="state">
+            <camunda:script scriptFormat="js">next(null, {name: content.name, id: content.id});</camunda:script>
+          </camunda:inputParameter>
+          <camunda:inputParameter name="PersonId">193801248471</camunda:inputParameter>
+          <camunda:outputParameter name="persondataXML">${content.output.body}</camunda:outputParameter>
+          <camunda:outputParameter name="state">
+            <camunda:script scriptFormat="js">next(null, {id: content.id, result: {done: true}});</camunda:script>
+          </camunda:outputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_05996ba</bpmn:incoming>
+      <bpmn:outgoing>Flow_0u3o8mf</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_05996ba" sourceRef="getSettings" targetRef="getPersondata" />
+    <bpmn:sequenceFlow id="Flow_1srt2as" sourceRef="convertPersondataXML" targetRef="debugLog" />
+    <bpmn:boundaryEvent id="error_Persondata" attachedToRef="getPersondata">
+      <bpmn:extensionElements>
+        <camunda:executionListener event="end">
+          <camunda:script scriptFormat="js">environment.variables.error = { 
+  taskId: content.output.inner.data.id,
+  payload: content.output.inner.output?.payload
+}
+next();</camunda:script>
+        </camunda:executionListener>
+      </bpmn:extensionElements>
+      <bpmn:outgoing>Flow_1ssv6f3</bpmn:outgoing>
+      <bpmn:errorEventDefinition id="ErrorEventDefinition_0pd3rin" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="Flow_1ssv6f3" sourceRef="error_Persondata" targetRef="error" />
+    <bpmn:endEvent id="error" name="Error">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="status">
+            <camunda:map>
+              <camunda:entry key="statuskey">stop</camunda:entry>
+              <camunda:entry key="statuscode">${environment.variables.error.payload.statusCode}</camunda:entry>
+              <camunda:entry key="statusmessage">${environment.variables.error.payload.message}</camunda:entry>
+              <camunda:entry key="error">${true}</camunda:entry>
+            </camunda:map>
+          </camunda:inputParameter>
+          <camunda:inputParameter name="state">
+            <camunda:script scriptFormat="js">next(null, {id: environment.variables.error.taskId, result: {error: true}});</camunda:script>
+          </camunda:inputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_1ssv6f3</bpmn:incoming>
+      <bpmn:errorEventDefinition id="ErrorEventDefinition_00elmhe" />
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_0scvv88" sourceRef="debugLog" targetRef="success" />
+    <bpmn:scriptTask id="debugLog" name="Debug log" scriptFormat="js">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="state">
+            <camunda:script scriptFormat="js">next(null, {name: content.name, id: content.id});</camunda:script>
+          </camunda:inputParameter>
+          <camunda:outputParameter name="state">
+            <camunda:script scriptFormat="js">next(null, {id: content.id, result: {done: true}});</camunda:script>
+          </camunda:outputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_1srt2as</bpmn:incoming>
+      <bpmn:outgoing>Flow_0scvv88</bpmn:outgoing>
+      <bpmn:script>// eslint-disable-next-line
+console.log(JSON.stringify(environment.output.persondata, null,2));
+next();</bpmn:script>
+    </bpmn:scriptTask>
+    <bpmn:serviceTask id="convertPersondataXML" name="Convert persondata XML to JSON">
+      <bpmn:extensionElements>
+        <camunda:connector>
+          <camunda:inputOutput>
+            <camunda:inputParameter name="url">http://functions:8282/convert/xml/json</camunda:inputParameter>
+            <camunda:inputParameter name="headers">
+              <camunda:map>
+                <camunda:entry key="Content-Type">text/plain</camunda:entry>
+              </camunda:map>
+            </camunda:inputParameter>
+            <camunda:inputParameter name="responseType">json</camunda:inputParameter>
+            <camunda:inputParameter name="body">${environment.output.persondataXML}</camunda:inputParameter>
+            <camunda:inputParameter name="method">POST</camunda:inputParameter>
+          </camunda:inputOutput>
+          <camunda:connectorId>httpRequest</camunda:connectorId>
+        </camunda:connector>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="state">
+            <camunda:script scriptFormat="js">next(null, {name: content.name, id: content.id});</camunda:script>
+          </camunda:inputParameter>
+          <camunda:outputParameter name="persondata">
+            <camunda:script scriptFormat="js">next(null, content.output.body['S:Envelope']['S:Body']['ns0:PersonpostXMLResponse']['ns0:Folkbokforingsposter']);</camunda:script>
+          </camunda:outputParameter>
+          <camunda:outputParameter name="state">
+            <camunda:script scriptFormat="js">next(null, {id: content.id, result: {done: true}});</camunda:script>
+          </camunda:outputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_0u3o8mf</bpmn:incoming>
+      <bpmn:outgoing>Flow_1srt2as</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="getSettings" name="Get settings">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="state">
+            <camunda:script scriptFormat="js">next(null, {name: content.name, id: content.id});</camunda:script>
+          </camunda:inputParameter>
+          <camunda:outputParameter name="state">
+            <camunda:script scriptFormat="js">next(null, {id: content.id, result: {done: true}});</camunda:script>
+          </camunda:outputParameter>
+          <camunda:outputParameter name="settings">${content.output.body}</camunda:outputParameter>
+        </camunda:inputOutput>
+        <camunda:connector>
+          <camunda:inputOutput>
+            <camunda:inputParameter name="url">/my/config/settings</camunda:inputParameter>
+            <camunda:inputParameter name="query">
+              <camunda:map>
+                <camunda:entry key="tag">skv</camunda:entry>
+              </camunda:map>
+            </camunda:inputParameter>
+          </camunda:inputOutput>
+          <camunda:connectorId>onifyApiRequest</camunda:connectorId>
+        </camunda:connector>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_03z4mly</bpmn:incoming>
+      <bpmn:outgoing>Flow_05996ba</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:textAnnotation id="TextAnnotation_0uhp9z9">
+      <bpmn:text>Hub function</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:association id="Association_0k14nb8" sourceRef="convertPersondataXML" targetRef="TextAnnotation_0uhp9z9" />
+    <bpmn:textAnnotation id="TextAnnotation_0nvzehb">
+      <bpmn:text>Get settings for SKV Navet</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:association id="Association_0yerpy1" sourceRef="getSettings" targetRef="TextAnnotation_0nvzehb" />
+    <bpmn:textAnnotation id="TextAnnotation_0b0nfhz">
+      <bpmn:text>Please change PersonId</bpmn:text>
+    </bpmn:textAnnotation>
+    <bpmn:association id="Association_0ndnthx" sourceRef="getPersondata" targetRef="TextAnnotation_0b0nfhz" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="skatteverket-navet-get-persondata">
+      <bpmndi:BPMNShape id="TextAnnotation_0nvzehb_di" bpmnElement="TextAnnotation_0nvzehb">
+        <dc:Bounds x="350" y="50" width="120" height="41" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="TextAnnotation_0uhp9z9_di" bpmnElement="TextAnnotation_0uhp9z9">
+        <dc:Bounds x="660" y="56" width="100" height="30" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="TextAnnotation_0b0nfhz_di" bpmnElement="TextAnnotation_0b0nfhz">
+        <dc:Bounds x="480" y="55" width="146" height="31" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="start" bioc:stroke="#205022" bioc:fill="#c8e6c9" color:background-color="#c8e6c9" color:border-color="#205022">
+        <dc:Bounds x="152" y="159" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="158" y="202" width="25" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_1ggmcd4_di" bpmnElement="success" bioc:stroke="#831311" bioc:fill="#ffcdd2" color:background-color="#ffcdd2" color:border-color="#831311">
+        <dc:Bounds x="902" y="159" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="899" y="202" width="42" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1lobh6r_di" bpmnElement="getPersondata">
+        <dc:Bounds x="420" y="137" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0h2l4jv_di" bpmnElement="error" bioc:stroke="#831311" bioc:fill="#ffcdd2" color:background-color="#ffcdd2" color:border-color="#831311">
+        <dc:Bounds x="452" y="292" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="457" y="335" width="26" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0n6xkp3_di" bpmnElement="debugLog">
+        <dc:Bounds x="740" y="137" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1ti155t_di" bpmnElement="convertPersondataXML">
+        <dc:Bounds x="580" y="137" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0tdjxja_di" bpmnElement="getSettings">
+        <dc:Bounds x="250" y="137" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Association_0yerpy1_di" bpmnElement="Association_0yerpy1">
+        <di:waypoint x="336" y="137" />
+        <di:waypoint x="377" y="91" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Association_0k14nb8_di" bpmnElement="Association_0k14nb8">
+        <di:waypoint x="660" y="137" />
+        <di:waypoint x="699" y="86" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Association_0ndnthx_di" bpmnElement="Association_0ndnthx">
+        <di:waypoint x="492" y="137" />
+        <di:waypoint x="521" y="86" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Event_0q8yp1s_di" bpmnElement="error_Persondata">
+        <dc:Bounds x="452" y="199" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_03z4mly_di" bpmnElement="Flow_03z4mly">
+        <di:waypoint x="188" y="177" />
+        <di:waypoint x="250" y="177" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0u3o8mf_di" bpmnElement="Flow_0u3o8mf">
+        <di:waypoint x="520" y="177" />
+        <di:waypoint x="580" y="177" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_05996ba_di" bpmnElement="Flow_05996ba">
+        <di:waypoint x="350" y="177" />
+        <di:waypoint x="420" y="177" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1srt2as_di" bpmnElement="Flow_1srt2as">
+        <di:waypoint x="680" y="177" />
+        <di:waypoint x="740" y="177" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1ssv6f3_di" bpmnElement="Flow_1ssv6f3">
+        <di:waypoint x="470" y="235" />
+        <di:waypoint x="470" y="292" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0scvv88_di" bpmnElement="Flow_0scvv88">
+        <di:waypoint x="840" y="177" />
+        <di:waypoint x="902" y="177" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
